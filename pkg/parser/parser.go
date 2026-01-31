@@ -53,9 +53,40 @@ func (p *Parser) Parse() (Statement, error) {
 		return p.parseDelete()
 	case "UPDATE":
 		return p.parseUpdate()
+	case "BEGIN":
+		return p.parseBegin()
+	case "COMMIT":
+		return p.parseCommit()
+	case "ROLLBACK":
+		return p.parseRollback()
 	default:
 		return nil, fmt.Errorf("unknown statement: %s", p.curTok.Literal)
 	}
+}
+
+func (p *Parser) parseBegin() (*BeginStatement, error) {
+	if err := p.expectToken("BEGIN"); err != nil {
+		return nil, err
+	}
+	// Optional TRANSACTION keyword
+	if p.curTokenIs("TRANSACTION") {
+		p.nextToken()
+	}
+	return &BeginStatement{}, nil
+}
+
+func (p *Parser) parseCommit() (*CommitStatement, error) {
+	if err := p.expectToken("COMMIT"); err != nil {
+		return nil, err
+	}
+	return &CommitStatement{}, nil
+}
+
+func (p *Parser) parseRollback() (*RollbackStatement, error) {
+	if err := p.expectToken("ROLLBACK"); err != nil {
+		return nil, err
+	}
+	return &RollbackStatement{}, nil
 }
 
 func (p *Parser) parseCreateTable() (*CreateTableStatement, error) {

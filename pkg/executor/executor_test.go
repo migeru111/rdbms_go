@@ -5,6 +5,7 @@ import (
 
 	"github.com/migeru111/rdbms_go/pkg/parser"
 	"github.com/migeru111/rdbms_go/pkg/storage"
+	"github.com/migeru111/rdbms_go/pkg/types"
 )
 
 func TestCreateTableAndInsert(t *testing.T) {
@@ -205,4 +206,117 @@ func TestUpdate(t *testing.T) {
 	if len(result.Rows) != 1 || result.Rows[0][0] != "Alicia" {
 		t.Errorf("expected 'Alicia', got %v", result.Rows)
 	}
+}
+
+func TestTransactionCommit(t *testing.T) {
+	db := storage.NewMemoryStorage()
+	exec := NewExecutor(db)
+
+	// Setup
+	executeQuery(exec, "CREATE TABLE accounts (id INTEGER, balance INTEGER)")
+	executeQuery(exec, "INSERT INTO accounts VALUES (1, 1000)")
+
+	// Begin transaction
+	result, err := executeQuery(exec, "BEGIN")
+	if err != nil {
+		t.Fatalf("begin error: %v", err)
+	}
+	if result.Message != "Transaction started" {
+		t.Errorf("unexpected message: %s", result.Message)
+	}
+
+	// Update within transaction
+	executeQuery(exec, "UPDATE accounts SET balance = 900 WHERE id = 1")
+
+	// Commit
+	result, err = executeQuery(exec, "COMMIT")
+	if err != nil {
+		t.Fatalf("commit error: %v", err)
+	}
+	if result.Message != "Transaction committed" {
+		t.Errorf("unexpected message: %s", result.Message)
+	}
+
+	// Verify changes persisted
+	result, _ = executeQuery(exec, "SELECT balance FROM accounts WHERE id = 1")
+	if len(result.Rows) != 1 || result.Rows[0][0] != "900" {
+		t.Errorf("expected balance 900, got %v", result.Rows)
+	}
+}
+
+func TestTransactionRollback(t *testing.T) {
+	db := storage.NewMemoryStorage()
+	exec := NewExecutor(db)
+
+	// Setup
+	executeQuery(exec, "CREATE TABLE accounts (id INTEGER, balance INTEGER)")
+	executeQuery(exec, "INSERT INTO accounts VALUES (1, 1000)")
+
+	// Begin transaction
+	executeQuery(exec, "BEGIN TRANSACTION")
+
+	// Make changes
+	executeQuery(exec, "UPDATE accounts SET balance = 500 WHERE id = 1")
+	executeQuery(exec, "INSERT INTO accounts VALUES (2, 2000)")
+
+	// Verify changes within transaction
+	result, _ := executeQuery(exec, "SELECT * FROM accounts")
+	if len(result.Rows) != 2 {
+		t.Errorf("expected 2 rows within transaction, got %d", len(result.Rows))
+	}
+
+	// Rollback
+	result, err := executeQuery(exec, "ROLLBACK")
+	if err != nil {
+		t.Fatalf("rollback error: %v", err)
+	}
+	if result.Message != "Transaction rolled back" {
+		t.Errorf("unexpected message: %s", result.Message)
+	}
+
+	// Verify changes were rolled back
+	result, _ = executeQuery(exec, "SELECT balance FROM accounts WHERE id = 1")
+	if len(result.Rows) != 1 || result.Rows[0][0] != "1000" {
+		t.Errorf("expected balance 1000 after rollback, got %v", result.Rows)
+	}
+
+	// Verify inserted row was rolled back
+	result, _ = executeQuery(exec, "SELECT * FROM accounts")
+	if len(result.Rows) != 1 {
+		t.Errorf("expected 1 row after rollback, got %d", len(result.Rows))
+	}
+}
+
+func TestTransactionErrors(t *testing.T) {
+	db := storage.NewMemoryStorage()
+	exec := NewExecutor(db)
+
+	// Commit without begin
+	_, err := executeQuery(exec, "COMMIT")
+	if err == nil {
+		t.Error("expected error for commit without begin")
+	}
+
+	// Rollback without begin
+	_, err = executeQuery(exec, "ROLLBACK")
+	if err == nil {
+		t.Error("expected error for rollback without begin")
+	}
+
+	// Nested transaction
+	executeQuery(exec, "BEGIN")
+	_, err = executeQuery(exec, "BEGIN")
+	if err == nil {
+		t.Error("expected error for nested begin")
+	}
+	executeQuery(exec, "ROLLBACK")
+}
+
+func executeQuery(exec *Executor, query string) (*types.Result, error) {
+	p := parser.NewParser(query)
+	stmt, err := p.Parse()
+	if err != nil {
+		return nil, err
+	}
+	return exec.Execute(stmt)
 }

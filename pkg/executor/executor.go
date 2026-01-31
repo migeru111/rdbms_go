@@ -31,9 +31,42 @@ func (e *Executor) Execute(stmt parser.Statement) (*types.Result, error) {
 		return e.executeDelete(s)
 	case *parser.UpdateStatement:
 		return e.executeUpdate(s)
+	case *parser.BeginStatement:
+		return e.executeBegin()
+	case *parser.CommitStatement:
+		return e.executeCommit()
+	case *parser.RollbackStatement:
+		return e.executeRollback()
 	default:
 		return nil, fmt.Errorf("unknown statement type")
 	}
+}
+
+func (e *Executor) executeBegin() (*types.Result, error) {
+	if err := e.storage.Begin(); err != nil {
+		return nil, err
+	}
+	return &types.Result{
+		Message: "Transaction started",
+	}, nil
+}
+
+func (e *Executor) executeCommit() (*types.Result, error) {
+	if err := e.storage.Commit(); err != nil {
+		return nil, err
+	}
+	return &types.Result{
+		Message: "Transaction committed",
+	}, nil
+}
+
+func (e *Executor) executeRollback() (*types.Result, error) {
+	if err := e.storage.Rollback(); err != nil {
+		return nil, err
+	}
+	return &types.Result{
+		Message: "Transaction rolled back",
+	}, nil
 }
 
 func (e *Executor) executeCreateTable(stmt *parser.CreateTableStatement) (*types.Result, error) {

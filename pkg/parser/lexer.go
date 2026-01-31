@@ -185,6 +185,7 @@ var keywords = map[string]bool{
 	"TRUE": true, "FALSE": true, "INTEGER": true, "INT": true,
 	"TEXT": true, "VARCHAR": true, "STRING": true, "BOOLEAN": true,
 	"BOOL": true, "DELETE": true, "UPDATE": true, "SET": true,
+	"BEGIN": true, "COMMIT": true, "ROLLBACK": true, "TRANSACTION": true,
 }
 
 func isKeyword(s string) bool {

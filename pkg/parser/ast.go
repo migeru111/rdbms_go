@@ -114,3 +114,18 @@ type BinaryExpr struct {
 }
 
 func (e *BinaryExpr) expressionNode() {}
+
+// BeginStatement represents BEGIN TRANSACTION
+type BeginStatement struct{}
+
+func (s *BeginStatement) statementNode() {}
+
+// CommitStatement represents COMMIT
+type CommitStatement struct{}
+
+func (s *CommitStatement) statementNode() {}
+
+// RollbackStatement represents ROLLBACK
+type RollbackStatement struct{}
+
+func (s *RollbackStatement) statementNode() {}
